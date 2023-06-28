@@ -8,6 +8,7 @@ venv/
 
 # Ignore everything in the generated directory
 /generated/*
+/scrap/*
 
 # Don't ignore .gitkeep files in the generated directory
 !/generated/.gitkeep

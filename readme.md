@@ -155,7 +155,7 @@ after a while of adding to your prompt, you can extract your prompt to a file, a
 
 ```bash
 # prompt in markdown file
-modal run main.py --prompt prompt.md --model=gpt-4
+modal run main.py --prompt prompt-tic-tac-toe.md --model=gpt-4
 ```
 
 each time you run this, the generated directory is deleted (except for images) and all files are rewritten from scratch. 
@@ -167,7 +167,7 @@ In the `shared_dependencies.md` file is a helper file that ensures coherence bet
 if you make a tweak to the prompt and only want it to affect one file, and keep the rest of the files, specify the file param:
 
 ```bash
-modal run main.py --prompt prompt.md  --file popup.js
+modal run main.py --prompt prompt-tic-tac-toe.md  --file popup.js
 ```
 
 ### smol dev without modal.com
@@ -180,7 +180,7 @@ However if you want to just run it on your own machine, you can run smol dev w/o
 pip install -r requirements.txt
 export OPENAI_API_KEY=sk-xxxxxx # your openai api key here)
 
-python main_no_modal.py YOUR_PROMPT_HERE
+python main.py --prompt YOUR_PROMPT_HERE
 ```
 
 If no command line argument is given, **and** the file `prompt.md` exists, the main function will automatically use the `prompt.md` file. All other command line arguments are left as default. *this is handy for those using the "run" function on a `venv` setup in PyCharm for Windows, where no opportunity is given to enter command line arguments. Thanks [@danmenzies](https://github.com/smol-ai/developer/pull/55)* 

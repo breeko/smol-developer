@@ -3,6 +3,10 @@ import os
 from time import sleep
 from constants import DEFAULT_DIR, DEFAULT_MODEL, DEFAULT_MAX_TOKENS, EXTENSION_TO_SKIP
 import argparse
+
+from utils.color_utils import blue
+
+
 def read_file(filename):
     with open(filename, "r") as file:
         return file.read()
@@ -62,8 +66,7 @@ def main(args):
         "\n\nGive me ideas for what could be wrong and what fixes to do in which files."
     )
     res = generate_response(system, prompt, model)
-    # print res in teal
-    print("\033[96m" + res + "\033[0m")
+    print(blue(res))
 
 
 def generate_response(system_prompt, user_prompt, model=DEFAULT_MODEL, *args):

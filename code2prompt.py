@@ -1,6 +1,7 @@
 import modal
 import os
 from constants import DEFAULT_DIR, DEFAULT_MODEL, DEFAULT_MAX_TOKENS, EXTENSION_TO_SKIP
+from utils.color_utils import teal
 
 stub = modal.Stub("smol-codetoprompt-v1")
 openai_image = modal.Image.debian_slim().pip_install("openai")
@@ -38,7 +39,7 @@ def main(prompt=None, directory=DEFAULT_DIR, model=DEFAULT_MODEL):
   prompt += "\n\nDescribe the program in markdown using specific language that will help another AI program reconstruct the given program in as high fidelity as possible."
   res = generate_response.call(system, prompt, model)
   # print res in teal
-  print("\033[96m" + res + "\033[0m")
+  print(teal(res))
 
 
 @stub.function(
