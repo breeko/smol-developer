@@ -6,11 +6,12 @@ import modal
 import ast
 
 from ModalStub import decorator
+from prompts.debugger import debugger_user_prompt, debugger_system_prompt
 from prompts.filepaths_string import filepaths_string_prompt
 from prompts.generate_file import generate_file_prompt
 from prompts.shared_dependencies import shared_dependencies_prompt
-from utils.color_utils import green
-from utils.path_utils import clean_dir, write_file
+from utils.color_utils import green, teal
+from utils.path_utils import clean_dir, write_file, walk_directory, fetch_prompt
 from utils.openai_utils import generate_response
 from constants import DEFAULT_DIR, DEFAULT_MODEL
 
@@ -21,6 +22,7 @@ parser.add_argument('--prompt', type=str, default="prompt.md", help='Prompt stri
 parser.add_argument('--directory', type=str, default=DEFAULT_DIR, help='Path to a directory')
 parser.add_argument('--model', type=str, default=DEFAULT_MODEL, help='Model name')
 parser.add_argument('--file', type=str, default=None, help='File name or a path to a file')
+parser.add_argument("--debug", type=bool, default=False, action="store_true", help="Whether tto run debug mode")
 
 args = parser.parse_args()
 
@@ -62,7 +64,7 @@ def generate_file(
         filepaths_string: Optional[str] = None,
         shared_dependencies: Optional[str] = None,
         prompt: Optional[str] = None
-):
+) -> (str, str):
     # call openai api with this prompt
     system_prompt, user_prompt = generate_file_prompt(
         prompt=prompt,
@@ -77,11 +79,9 @@ def generate_file(
 
 
 @local_entrypoint()
-def main(prompt, directory=DEFAULT_DIR, model=DEFAULT_MODEL, file=None):
+def main(prompt, directory=DEFAULT_DIR, model=DEFAULT_MODEL, file=None) -> None:
     # read file from prompt if it ends in a .md filetype
-    if prompt.endswith(".md"):
-        with open(prompt, "r") as promptfile:
-            prompt = promptfile.read()
+    prompt = fetch_prompt(prompt)
 
     print("hi its me, 🐣the smol developer🐣! you said you wanted:")
     print(green(prompt))
@@ -133,11 +133,34 @@ def main(prompt, directory=DEFAULT_DIR, model=DEFAULT_MODEL, file=None):
         print("Failed to parse result")
 
 
+@local_entrypoint()
+def debug(prompt: str, directory: str = DEFAULT_DIR, model=DEFAULT_MODEL):
+    prompt = fetch_prompt(prompt)
+    code_contents = walk_directory(directory)
+
+    # Now, `code_contents` is a dictionary that contains the content of all your non-image files
+    # You can send this to OpenAI's text-davinci-003 for help
+
+    context = "\n".join(f"{path}:\n{contents}" for path, contents in code_contents.items())
+    user_prompt = debugger_user_prompt(context=context, prompt=prompt)
+    res = generate_response_main.call(debugger_system_prompt, user_prompt, model)
+
+    print(teal(res))
+
+
 if __name__ == "__main__":
-    main(
-        prompt=args.prompt,
-        directory=args.directory,
-        model=args.model,
-        file=args.file,
-    )
+    if args.debug:
+        debug(
+            prompt=args.prompt,
+            directory=args.directory,
+            model=args.model,
+            file=args.file,
+        )
+    else:
+        main(
+            prompt=args.prompt,
+            directory=args.directory,
+            model=args.model,
+            file=args.file,
+        )
 

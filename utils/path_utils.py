@@ -51,3 +51,10 @@ def walk_directory(directory: str):
                 except Exception as e:
                     code_contents[relative_filepath] = f"Error reading file {filename}: {str(e)}"
     return code_contents
+
+
+def fetch_prompt(prompt: str) -> str:
+    if prompt.endswith(".md"):
+        with open(prompt, "r") as promptfile:
+            return promptfile.read()
+    return prompt

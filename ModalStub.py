@@ -3,10 +3,6 @@ from typing import Callable, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
-async def async_call(f, args, kwargs):
-    return await f(*args, **kwargs)
-
-
 def decorator(f: Optional[Callable] = None, *args, **kwargs):
     if f is None:
         return decorator
