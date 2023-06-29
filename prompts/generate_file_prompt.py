@@ -1,4 +1,7 @@
-def generate_file_prompt(prompt: str, filepaths_string: str, shared_dependencies: str, filename: str) -> (str, str):
+from typing import Tuple
+
+
+def generate_file_prompt(prompt: str, filepaths_string: str, shared_dependencies: str, filename: str) -> Tuple[str, str]:
     system_prompt = f"""You are an AI developer who is trying to write a program that will generate code for the user based on their intent.
           
       the app is: {prompt}

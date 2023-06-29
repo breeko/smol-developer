@@ -1,6 +1,7 @@
 import os
 from constants import EXTENSION_TO_SKIP
 from utils.color_utils import blue
+import re
 
 
 def write_file(filename: str, content: str, directory: str):
@@ -19,6 +20,8 @@ def write_file(filename: str, content: str, directory: str):
     # Open the file in write mode
     with open(file_path, "w") as file:
         # Write content to the file
+        content = re.sub("^```.+\n", "", content)
+        content = re.sub("\n```$", "", content)
         file.write(content)
 
 
@@ -36,7 +39,7 @@ def clean_dir(directory: str) -> None:
 
 
 def read_file(filename: str):
-    with open(filename, 'r') as file:
+    with open(filename, "r") as file:
         return file.read()
 
 
@@ -46,10 +49,16 @@ def walk_directory(directory: str):
         for filename in filenames:
             if not any(filename.endswith(ext) for ext in EXTENSION_TO_SKIP):
                 try:
-                    relative_filepath = os.path.relpath(os.path.join(dirpath, filename), directory)
-                    code_contents[relative_filepath] = read_file(os.path.join(dirpath, filename))
+                    relative_filepath = os.path.relpath(
+                        os.path.join(dirpath, filename), directory
+                    )
+                    code_contents[relative_filepath] = read_file(
+                        os.path.join(dirpath, filename)
+                    )
                 except Exception as e:
-                    code_contents[relative_filepath] = f"Error reading file {filename}: {str(e)}"
+                    code_contents[
+                        relative_filepath
+                    ] = f"Error reading file {filename}: {str(e)}"
     return code_contents
 
 

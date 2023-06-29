@@ -1,14 +1,15 @@
 import argparse
 import os
-from typing import Optional
+from typing import Optional, Tuple
 
 import modal
 import ast
 
 from ModalStub import decorator
-from prompts.debugger import debugger_user_prompt, debugger_system_prompt
-from prompts.filepaths_string import filepaths_string_prompt
-from prompts.generate_file import generate_file_prompt
+from prompts.debugger_prompt import debugger_user_prompt, debugger_system_prompt
+from prompts.filepaths_string_prompt import filepaths_string_prompt
+from prompts.generate_file_prompt import generate_file_prompt
+from prompts.generate_prompt import generate_prompt_prompt
 from prompts.shared_dependencies import shared_dependencies_prompt
 from utils.color_utils import green, teal
 from utils.path_utils import clean_dir, write_file, walk_directory, fetch_prompt
@@ -16,13 +17,31 @@ from utils.openai_utils import generate_response
 from constants import DEFAULT_DIR, DEFAULT_MODEL
 
 # Argument parser
-parser = argparse.ArgumentParser(description='This is a description of what this program does')
-parser.add_argument('ignore', nargs='*', help='A catch all for positional args so you can run modal')
-parser.add_argument('--prompt', type=str, default="prompt.md", help='Prompt string or a path to a .md file')
-parser.add_argument('--directory', type=str, default=DEFAULT_DIR, help='Path to a directory')
-parser.add_argument('--model', type=str, default=DEFAULT_MODEL, help='Model name')
-parser.add_argument('--file', type=str, default=None, help='File name or a path to a file')
-parser.add_argument("--debug", type=bool, default=False, action="store_true", help="Whether tto run debug mode")
+parser = argparse.ArgumentParser(
+    description="This is a description of what this program does"
+)
+parser.add_argument(
+    "ignore", nargs="*", help="A catch all for positional args so you can run modal"
+)
+parser.add_argument(
+    "--prompt",
+    type=str,
+    default=None,
+    help="Prompt string or a path to a .md file",
+)
+parser.add_argument(
+    "--directory", type=str, default=DEFAULT_DIR, help="Path to a directory"
+)
+parser.add_argument("--model", type=str, default=DEFAULT_MODEL, help="Model name")
+parser.add_argument(
+    "--file", type=str, default=None, help="File name or a path to a file"
+)
+parser.add_argument(
+    "--mode",
+    choices=["generate", "debug", "prompt"],
+    help="Whether to generate based on prompt, debug or generate prompt for an existing codebase",
+)
+
 
 args = parser.parse_args()
 
@@ -59,27 +78,31 @@ generate_response_main = function(
     secret=modal.Secret.from_dotenv(),
 )
 def generate_file(
-        filename: str,
-        model: str = DEFAULT_MODEL,
-        filepaths_string: Optional[str] = None,
-        shared_dependencies: Optional[str] = None,
-        prompt: Optional[str] = None
-) -> (str, str):
+    filename: str,
+    model: str = DEFAULT_MODEL,
+    filepaths_string: Optional[str] = None,
+    shared_dependencies: Optional[str] = None,
+    prompt: Optional[str] = None,
+) -> Tuple[str, str]:
     # call openai api with this prompt
     system_prompt, user_prompt = generate_file_prompt(
         prompt=prompt,
         filename=filename,
         filepaths_string=filepaths_string,
-        shared_dependencies=shared_dependencies
+        shared_dependencies=shared_dependencies,
     )
 
-    filecode = generate_response_main(model=model, system_prompt=system_prompt, user_prompt=user_prompt)
+    filecode = generate_response_main(
+        model=model, system_prompt=system_prompt, user_prompt=user_prompt
+    )
 
     return filename, filecode
 
 
 @local_entrypoint()
-def main(prompt, directory=DEFAULT_DIR, model=DEFAULT_MODEL, file=None) -> None:
+def generate(
+    prompt: str, directory=DEFAULT_DIR, model=DEFAULT_MODEL, file=None
+) -> None:
     # read file from prompt if it ends in a .md filetype
     prompt = fetch_prompt(prompt)
 
@@ -88,7 +111,9 @@ def main(prompt, directory=DEFAULT_DIR, model=DEFAULT_MODEL, file=None) -> None:
 
     # call openai api with this prompt
     dir(generate_response_main)
-    filepaths_string = generate_response_main.call(model, filepaths_string_prompt, prompt)
+    filepaths_string = generate_response_main.call(
+        model, filepaths_string_prompt, prompt
+    )
     print(filepaths_string)
     # parse the result into a python list
     try:
@@ -103,29 +128,38 @@ def main(prompt, directory=DEFAULT_DIR, model=DEFAULT_MODEL, file=None) -> None:
         if file is not None:
             # check file
             print("file", file)
-            filename, filecode = generate_file(file, model=model, filepaths_string=filepaths_string,
-                                               shared_dependencies=shared_dependencies, prompt=prompt)
+            filename, filecode = generate_file(
+                file,
+                model=model,
+                filepaths_string=filepaths_string,
+                shared_dependencies=shared_dependencies,
+                prompt=prompt,
+            )
             write_file(filename, filecode, directory)
         else:
             clean_dir(directory)
 
             # understand shared dependencies
-            system_prompt = shared_dependencies_prompt(prompt=prompt, filepaths_string=filepaths_string)
-            shared_dependencies = generate_response_main.call(model, system_prompt, prompt)
+            system_prompt = shared_dependencies_prompt(
+                prompt=prompt, filepaths_string=filepaths_string
+            )
+            shared_dependencies = generate_response_main.call(
+                model, system_prompt, prompt
+            )
             print(shared_dependencies)
             # write shared dependencies as a md file inside the generated directory
             write_file("shared_dependencies.md", shared_dependencies, directory)
 
             # Iterate over generated files and write them to the specified directory
             for filename, filecode in generate_file.map(
-                    list_actual,
-                    order_outputs=False,
-                    kwargs=dict(
-                        model=model,
-                        filepaths_string=filepaths_string,
-                        shared_dependencies=shared_dependencies,
-                        prompt=prompt
-                    )
+                list_actual,
+                order_outputs=False,
+                kwargs=dict(
+                    model=model,
+                    filepaths_string=filepaths_string,
+                    shared_dependencies=shared_dependencies,
+                    prompt=prompt,
+                ),
             ):
                 write_file(filename, filecode, directory)
 
@@ -141,26 +175,52 @@ def debug(prompt: str, directory: str = DEFAULT_DIR, model=DEFAULT_MODEL):
     # Now, `code_contents` is a dictionary that contains the content of all your non-image files
     # You can send this to OpenAI's text-davinci-003 for help
 
-    context = "\n".join(f"{path}:\n{contents}" for path, contents in code_contents.items())
+    context = "\n".join(
+        f"{path}:\n{contents}" for path, contents in code_contents.items()
+    )
     user_prompt = debugger_user_prompt(context=context, prompt=prompt)
-    res = generate_response_main.call(debugger_system_prompt, user_prompt, model)
+    res = generate_response_main.call(model, debugger_system_prompt, user_prompt)
 
     print(teal(res))
 
 
+@local_entrypoint()
+def generate_prompt(
+    prompt: Optional[str] = None, directory=DEFAULT_DIR, model=DEFAULT_MODEL
+):
+    code_contents = walk_directory(directory)
+
+    # Now, `code_contents` is a dictionary that contains the content of all your non-image files
+    # You can send this to OpenAI's text-davinci-003 for help
+
+    context = "\n".join(
+        f"{path}:\n{contents}" for path, contents in code_contents.items()
+    )
+
+    system_prompt, user_prompt = generate_prompt_prompt(context=context, prompt=prompt)
+    res = generate_response_main.call(model, system_prompt, user_prompt, model)
+    # print res in teal
+    print(teal(res))
+
+
 if __name__ == "__main__":
-    if args.debug:
+    if args.mode == "debug":
+        if not args.prompt:
+            raise ValueError("Prompt required!")
         debug(
             prompt=args.prompt,
             directory=args.directory,
             model=args.model,
             file=args.file,
         )
-    else:
-        main(
+    elif args.mode == "generate":
+        if not args.prompt:
+            raise ValueError("Prompt required!")
+        generate(
             prompt=args.prompt,
             directory=args.directory,
             model=args.model,
             file=args.file,
         )
-
+    elif args.mode == "prompt":
+        generate_prompt(prompt=args.prompt, directory=args.directory, model=args.model)
